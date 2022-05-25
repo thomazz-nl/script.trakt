@@ -682,44 +682,42 @@ class traktPlayer(xbmc.Player):
                             data['video_ids'] = showKeys
                             # Now to find the episode. There's no search function to look for an episode within a show, but
                             # we can get all the episodes and look for the title.
-                            while (not data['season']):
+                            logger.debug(
+                                "[traktPlayer] onAVStarted() - Querying for all seasons/episodes of this show")
+                            epQueryResp = globals.traktapi.getShowWithAllEpisodesList(
+                                data['video_ids']['trakt'])
+                            if not epQueryResp:
+                                # Nothing returned. Giving up.
                                 logger.debug(
-                                    "[traktPlayer] onAVStarted() - Querying for all seasons/episodes of this show")
-                                epQueryResp = globals.traktapi.getShowWithAllEpisodesList(
-                                    data['video_ids']['trakt'])
-                                if not epQueryResp:
-                                    # Nothing returned. Giving up.
+                                    "[traktPlayer] onAVStarted() - No response received")
+                            else:
+                                # Got the list back. Go through each season.
+                                logger.debug(
+                                    "[traktPlayer] onAVStarted() - Got response with seasons: %s" % str(epQueryResp))
+                                for eachSeason in epQueryResp:
+                                    # For each season, check each episode.
                                     logger.debug(
-                                        "[traktPlayer] onAVStarted() - No response received")
-                                    break
-                                else:
-                                    # Got the list back. Go through each season.
-                                    logger.debug(
-                                        "[traktPlayer] onAVStarted() - Got response with seasons: %s" % str(epQueryResp))
-                                    for eachSeason in epQueryResp:
-                                        # For each season, check each episode.
-                                        logger.debug(
-                                            "[traktPlayer] onAVStarted() - Processing season: %s" % str(eachSeason))
-                                        for eachEpisodeNumber in eachSeason.episodes:
+                                        "[traktPlayer] onAVStarted() - Processing season: %s" % str(eachSeason))
+                                    for eachEpisodeNumber in eachSeason.episodes:
+                                        thisEpTitle = None
+                                        # Get the title. The try block is here in case the title doesn't exist for some entries.
+                                        try:
+                                            thisEpTitle = eachSeason.episodes[eachEpisodeNumber].title
+                                        except:
                                             thisEpTitle = None
-                                            # Get the title. The try block is here in case the title doesn't exist for some entries.
-                                            try:
-                                                thisEpTitle = eachSeason.episodes[eachEpisodeNumber].title
-                                            except:
-                                                thisEpTitle = None
-                                            logger.debug("[traktPlayer] onAVStarted() - Checking episode number %d with title %s" % (
-                                                eachEpisodeNumber, thisEpTitle))
-                                            if (foundEpisodeName == thisEpTitle):
-                                                # Found it! Save the data. The scrobbler wants season and episode number. Which for some
-                                                # reason is stored as a pair in the first item in the keys array.
-                                                data['season'] = eachSeason.episodes[eachEpisodeNumber].keys[0][0]
-                                                data['episode'] = eachSeason.episodes[eachEpisodeNumber].keys[0][1]
-                                                # Title too, just for the heck of it. Though it's not actually used.
-                                                data['episodeTitle'] = thisEpTitle
-                                                break
-                                        # If we already found our data, no need to go through the rest of the seasons.
-                                        if (data['season']):
+                                        logger.debug("[traktPlayer] onAVStarted() - Checking episode number %d with title %s" % (
+                                            eachEpisodeNumber, thisEpTitle))
+                                        if (foundEpisodeName == thisEpTitle):
+                                            # Found it! Save the data. The scrobbler wants season and episode number. Which for some
+                                            # reason is stored as a pair in the first item in the keys array.
+                                            data['season'] = eachSeason.episodes[eachEpisodeNumber].keys[0][0]
+                                            data['episode'] = eachSeason.episodes[eachEpisodeNumber].keys[0][1]
+                                            # Title too, just for the heck of it. Though it's not actually used.
+                                            data['episodeTitle'] = thisEpTitle
                                             break
+                                    # If we already found our data, no need to go through the rest of the seasons.
+                                    if (data['season']):
+                                        break
                     # Now we've done all we can.
                     if (data['season']):
                         # OK, that's everything. Data should be all set for scrobbling.
